@@ -1,0 +1,22 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "deltarune:font/deltarune/page_0.png",
+      "height": 9,
+      "ascent": 7,
+      "chars": [
+        "ABCDEFGHIJ",
+        "KLMNOPQRST",
+        "UVWXYZ    ",
+        "abcdefghij",
+        "klmnopqrst",
+        "uvwxyz  '\"",
+        "0123456789",
+        ".,?!@_*#$%",
+        "&()+-/:;<=",
+        ">[\\]^\uE001{|}~"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": { "layer0": "deltarune:item/ralsei_spawn_egg" }
+}

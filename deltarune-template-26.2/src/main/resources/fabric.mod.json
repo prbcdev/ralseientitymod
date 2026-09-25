@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "deltarune",
+	"version": "${version}",
+	"name": "deltarune",
+	"description": "mod that adds stuff from deltarune",
+	"authors": [
+		"???"
+	],
+	"contact": {
+		"homepage": "[placeholder]",
+		"sources": "[placeholder]"
+	},
+	"license": "MIT",
+	"icon": "assets/deltarune/icon.png",
+	"environment": "*",
+  "entrypoints": {
+    "main": ["dev.ralsei.Deltarune"],
+    "client": ["dev.ralsei.client.DeltaruneClient"],
+    "fabric-datagen": ["dev.ralsei.DeltaruneDataGenerator"]
+  },
+	"mixins": [
+		"deltarune.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

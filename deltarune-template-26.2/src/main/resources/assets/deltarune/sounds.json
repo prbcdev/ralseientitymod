@@ -1,0 +1,12 @@
+{
+  "npc.ralsei.talk_blip": {
+    "sounds": [
+      "deltarune:npc/ralsei/talk/blip"
+    ]
+  },
+  "npc.ralsei.lullaby": {
+    "sounds": [
+      "deltarune:npc/ralsei/lullaby"
+    ]
+  }
+}
