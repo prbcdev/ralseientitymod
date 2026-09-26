@@ -15,6 +15,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 
+import java.util.HashMap;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -55,19 +56,18 @@ public class RalseiEntityRenderer extends EntityRenderer<RalseiEntity, RalseiEnt
         this.shadowRadius = 0.4f;
     }
 
+    private static final Map<String, RalseiVisualState> TALK_OVERRIDES_BY_KEY = buildTalkOverrideLookup();
+
+    private static Map<String, RalseiVisualState> buildTalkOverrideLookup() {
+        Map<String, RalseiVisualState> byKey = new HashMap<>();
+        for (RalseiVisualState visualState : RalseiVisualState.values()) {
+            byKey.put(visualState.fileName(), visualState);
+        }
+        return byKey;
+    }
+
     private static RalseiVisualState resolveTalkOverride(String key) {
-        if (key == null) return null;
-        return switch (key) {
-            case "happy" -> RalseiVisualState.HAPPY;
-            case "excited" -> RalseiVisualState.EXCITED;
-            case "shocked" -> RalseiVisualState.SHOCKED;
-            case "shy" -> RalseiVisualState.SHY;
-            case "blush" -> RalseiVisualState.BLUSH;
-            case "giggle" -> RalseiVisualState.GIGGLE;
-            case "wave" -> RalseiVisualState.WAVE;
-            case "dying" -> RalseiVisualState.DYING;
-            default -> null;
-        };
+        return key == null ? null : TALK_OVERRIDES_BY_KEY.get(key);
     }
 
     @Override
