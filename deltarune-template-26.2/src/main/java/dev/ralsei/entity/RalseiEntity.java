@@ -99,7 +99,7 @@ public class RalseiEntity extends PathfinderMob {
     private float facingSnap = 0f;
     private float lastMovementHeading = 0f;
 
-    private static final double MIN_FACING_DISTANCE_SQ = 0.04D;
+    private static final double MIN_FACING_DISTANCE_SQ = 1.0E-6D; // value taken from vanilla LookControl.java please don't change
 
     public static final double MAX_TALK_DISTANCE_SQ = 4.5 * 4.5;
     private final PlayerLock talkLock = new PlayerLock();
@@ -194,7 +194,7 @@ public class RalseiEntity extends PathfinderMob {
 
         @Override
         public void tick() {
-            if (isTalking() || this.operation != Operation.MOVE_TO) {
+            if (isTalking() || rescuing || aerialFollowing || isEscaping() || this.operation != Operation.MOVE_TO) {
                 return;
             }
 
@@ -209,11 +209,8 @@ public class RalseiEntity extends PathfinderMob {
 
             tryJumpIfBlocked(dx, dz);
 
-            float rawHeading = (float) (Mth.atan2(dz, dx) * (180D / Math.PI)) - 90f;
-            float snappedHeading = snapToNearest(rawHeading, MOVEMENT_SNAP_INCREMENT);
-            if (Mth.abs(Mth.wrapDegrees(snappedHeading - lastMovementHeading)) > MOVEMENT_HYSTERESIS_DEGREES) {
-                lastMovementHeading = snappedHeading;
-            }
+            float rawHeading = yawTo(dx, dz);
+            lastMovementHeading = applyHysteresisSnap(rawHeading, MOVEMENT_SNAP_INCREMENT, MOVEMENT_HYSTERESIS_DEGREES, lastMovementHeading);
             RalseiEntity.this.setYRot(lastMovementHeading);
 
             float speed = (float) (this.speedModifier * RalseiEntity.this.getAttributeValue(Attributes.MOVEMENT_SPEED));
@@ -266,7 +263,7 @@ public class RalseiEntity extends PathfinderMob {
         private static final int LAUNCH_TICKS = 8;
         private static final float ARRIVE_DISTANCE = 3.0f;
 
-        private int launchRemaining;
+        private int launchTicksElapsed;
         private boolean wasInvulnerable;
 
         RescueGoal() {
@@ -302,14 +299,13 @@ public class RalseiEntity extends PathfinderMob {
 
         @Override
         public void start() {
-            launchRemaining = LAUNCH_TICKS;
+            launchTicksElapsed = 0;
             rescuing = true;
             wasInvulnerable = RalseiEntity.this.isInvulnerable();
             RalseiEntity.this.setInvulnerable(true);
             RalseiEntity.this.setNoGravity(true);
             RalseiEntity.this.entityData.set(DATA_FLYING, true);
             RalseiEntity.this.getNavigation().stop();
-            RalseiEntity.this.setDeltaMovement(0, LAUNCH_VELOCITY, 0);
 
             ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
             if (target != null) {
@@ -333,18 +329,14 @@ public class RalseiEntity extends PathfinderMob {
                 return;
             }
 
-            if (launchRemaining > 0) {
-                launchRemaining--;
+            launchTicksElapsed++;
+            if (RalseiEntity.this.tickLaunchPhase(launchTicksElapsed, LAUNCH_TICKS, LAUNCH_VELOCITY)) {
                 RalseiEntity.this.turnToFace(target);
                 return;
             }
 
             double clearance = Math.max(CLEARANCE_ABOVE_TARGET, target.getY() - RalseiEntity.this.getY() + CLEARANCE_ABOVE_TARGET);
-            Vec3 targetPos = target.position().add(0, clearance, 0);
-            Vec3 lerped = RalseiEntity.this.position().lerp(targetPos, POSITION_LERP);
-
-            RalseiEntity.this.setPos(lerped.x, lerped.y, lerped.z);
-            RalseiEntity.this.setDeltaMovement(Vec3.ZERO);
+            RalseiEntity.this.flyTowardLerp(target.position().add(0, clearance, 0), POSITION_LERP);
             RalseiEntity.this.turnToFace(target);
         }
     }
@@ -387,10 +379,11 @@ public class RalseiEntity extends PathfinderMob {
             return target == null || Math.abs(RalseiEntity.this.getY() - target.getY()) < 1.5;
         }
 
+        private int launchTicksElapsed;
+
         @Override
         public void start() {
-            launchRemaining = LAUNCH_TICKS;
-            RalseiEntity.this.setDeltaMovement(0, LAUNCH_VELOCITY, 0);
+            launchTicksElapsed = 0;
             aerialFollowing = true;
 
             ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
@@ -413,8 +406,8 @@ public class RalseiEntity extends PathfinderMob {
                 return;
             }
 
-            if (launchRemaining > 0) {
-                launchRemaining--;
+            launchTicksElapsed++;
+            if (RalseiEntity.this.tickLaunchPhase(launchTicksElapsed, LAUNCH_TICKS, LAUNCH_VELOCITY)) {
                 RalseiEntity.this.turnToFace(target);
                 return;
             }
@@ -426,11 +419,7 @@ public class RalseiEntity extends PathfinderMob {
 
             Vec3 look = target.getLookAngle();
             Vec3 behind = new Vec3(-look.x, 0, -look.z).normalize().scale(FOLLOW_DISTANCE);
-            Vec3 targetPos = target.position().add(behind);
-            Vec3 lerped = RalseiEntity.this.position().lerp(targetPos, POSITION_LERP);
-
-            RalseiEntity.this.setPos(lerped.x, lerped.y, lerped.z);
-            RalseiEntity.this.setDeltaMovement(Vec3.ZERO);
+            RalseiEntity.this.flyTowardLerp(target.position().add(behind), POSITION_LERP);
             RalseiEntity.this.turnToFace(target);
         }
     }
@@ -504,6 +493,16 @@ public class RalseiEntity extends PathfinderMob {
         return Math.round(Mth.wrapDegrees(degrees) / increment) * increment;
     }
 
+    private static float yawTo(double dx, double dz) {
+        return (float) (Mth.atan2(dz, dx) * (180D / Math.PI)) - 90F;
+    }
+
+    private static float applyHysteresisSnap(float rawDegrees, float increment, float hysteresisDegrees, float previousSnap) {
+        float candidate = snapToNearest(rawDegrees, increment);
+        boolean crossedThreshold = Mth.abs(Mth.wrapDegrees(candidate - previousSnap)) > hysteresisDegrees;
+        return crossedThreshold ? candidate : previousSnap;
+    }
+
     private void setFacingSnap(float snapped) {
         this.facingSnap = snapped;
         this.yBodyRot = snapped;
@@ -522,13 +521,27 @@ public class RalseiEntity extends PathfinderMob {
         if (dx * dx + dz * dz < MIN_FACING_DISTANCE_SQ) {
             return; // no meaningful horizontal direction, keep current facing
         }
-        float rawYaw = (float) (Mth.atan2(dz, dx) * (180D / Math.PI)) - 90F;
+        float rawYaw = yawTo(dx, dz);
         this.setYRot(rawYaw);
         this.yRotO = rawYaw;
     }
 
     public void turnToFace(Entity target) {
         turnToFace(target.getX(), target.getZ());
+    }
+
+    private boolean tickLaunchPhase(int elapsedTicks, int launchTicks, double launchVelocity) {
+        if (elapsedTicks > launchTicks) {
+            return false;
+        }
+        this.setDeltaMovement(0, launchVelocity, 0);
+        return true;
+    }
+
+    private void flyTowardLerp(Vec3 targetPos, double lerpFactor) {
+        Vec3 lerped = this.position().lerp(targetPos, lerpFactor);
+        this.setPos(lerped.x, lerped.y, lerped.z);
+        this.setDeltaMovement(Vec3.ZERO);
     }
 
     private boolean isPlayerPresent(ServerPlayer player) {
@@ -697,7 +710,7 @@ public class RalseiEntity extends PathfinderMob {
 
     private void beginEscapeDialogue(ServerPlayer attacker) {
         escapeState = EscapeState.DIALOGUE;
-        applyBoredomInterruptionEffects(); // stops the lullaby / clears sleep if he was mid-boredom-task
+        applyBoredomInterruptionEffects(); // stops the lullaby
         talkLock.forceRelease();
         followLock.forceRelease();
         this.getNavigation().stop();
@@ -727,7 +740,7 @@ public class RalseiEntity extends PathfinderMob {
     }
 
     private class EscapeGoal extends Goal {
-        private static final double FLEE_SPEED = 1.2D;
+        private static final double FLEE_SPEED = 2.5D;
         private static final double ESCAPE_LAUNCH_VELOCITY = 0.33D;
         private static final int ESCAPE_LAUNCH_TICKS = 4;
 
@@ -781,9 +794,9 @@ public class RalseiEntity extends PathfinderMob {
     public void tick() {
         super.tick();
 
-        float target = snapToNearest(this.getYRot(), FACING_SNAP_INCREMENT);
-        if (Mth.abs(Mth.wrapDegrees(target - this.facingSnap)) > FACING_HYSTERESIS_DEGREES) {
-            setFacingSnap(target);
+        float newFacing = applyHysteresisSnap(this.getYRot(), FACING_SNAP_INCREMENT, FACING_HYSTERESIS_DEGREES, this.facingSnap);
+        if (newFacing != this.facingSnap) {
+            setFacingSnap(newFacing);
         }
 
         if (this.level().isClientSide()) {
