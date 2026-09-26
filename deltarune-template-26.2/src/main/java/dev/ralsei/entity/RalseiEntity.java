@@ -116,7 +116,6 @@ public class RalseiEntity extends PathfinderMob {
         super(entityType, level);
         this.moveControl = new GridMoveControl(this);
     }
-
     public static AttributeSupplier.Builder createRalseiAttributes() {
         return PathfinderMob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 72.0)
@@ -124,7 +123,6 @@ public class RalseiEntity extends PathfinderMob {
                 .add(Attributes.FOLLOW_RANGE, 16.0)
                 .add(Attributes.JUMP_STRENGTH, 0.4725);
     }
-
     public String clientTalkOverride = null;
     private String lastClientTalkOverride = null;
     private int clientTalkOverrideTicks = 0;
@@ -137,7 +135,6 @@ public class RalseiEntity extends PathfinderMob {
             clientTalkOverrideTicks++;
         }
     }
-
     public int getClientTalkOverrideTicks() {
         return clientTalkOverrideTicks;
     }
@@ -151,7 +148,6 @@ public class RalseiEntity extends PathfinderMob {
         this.goalSelector.addGoal(4, new FollowPlayerGoal());
         this.goalSelector.addGoal(5, new GatedWanderGoal(this, 0.8D));
     }
-
     @Override
     protected BodyRotationControl createBodyControl() {
         return new NoOpBodyRotationControl(this);
@@ -166,7 +162,6 @@ public class RalseiEntity extends PathfinderMob {
         public void clientTick() {
         }
     }
-
     private class GatedWanderGoal extends WaterAvoidingRandomStrollGoal {
         GatedWanderGoal(PathfinderMob mob, double speedModifier) {
             super(mob, speedModifier);
@@ -182,7 +177,6 @@ public class RalseiEntity extends PathfinderMob {
             return !isTalking() && !followLock.isOwned() && !isInBoredomTask() && !isEscaping() && super.canContinueToUse();
         }
     }
-
     private class GridMoveControl extends MoveControl {
         private static final double STOP_THRESHOLD_SQ = 0.01D;
         private static final double JUMP_STEP_THRESHOLD = 0.5D;
@@ -216,7 +210,6 @@ public class RalseiEntity extends PathfinderMob {
             float speed = (float) (this.speedModifier * RalseiEntity.this.getAttributeValue(Attributes.MOVEMENT_SPEED));
             RalseiEntity.this.setSpeed(speed);
         }
-
         private void tryJumpIfBlocked(double dx, double dz) {
             if (!RalseiEntity.this.onGround()) {
                 return;
@@ -254,7 +247,6 @@ public class RalseiEntity extends PathfinderMob {
             ));
         }
     }
-
     private class RescueGoal extends Goal {
         private static final double RESCUE_DISTANCE_SQ = 24.0 * 24.0;
         private static final double CLEARANCE_ABOVE_TARGET = 3.0D;
@@ -275,20 +267,19 @@ public class RalseiEntity extends PathfinderMob {
             if (!followLock.isOwned() || isTalking()) {
                 return false;
             }
-            ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
+            ServerPlayer target = RalseiEntity.this.followTarget();
             if (target == null) {
                 return false;
             }
             return RalseiEntity.this.distanceToSqr(target) > RESCUE_DISTANCE_SQ
                     || RalseiEntity.this.getNavigation().isStuck();
         }
-
         @Override
         public boolean canContinueToUse() {
             if (!followLock.isOwned() || isTalking()) {
                 return false;
             }
-            ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
+            ServerPlayer target = RalseiEntity.this.followTarget();
             if (target == null) {
                 return false;
             }
@@ -296,7 +287,6 @@ public class RalseiEntity extends PathfinderMob {
             double dz = target.getZ() - RalseiEntity.this.getZ();
             return dx * dx + dz * dz > ARRIVE_DISTANCE * ARRIVE_DISTANCE;
         }
-
         @Override
         public void start() {
             launchTicksElapsed = 0;
@@ -307,12 +297,11 @@ public class RalseiEntity extends PathfinderMob {
             RalseiEntity.this.entityData.set(DATA_FLYING, true);
             RalseiEntity.this.getNavigation().stop();
 
-            ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
+            ServerPlayer target = RalseiEntity.this.followTarget();
             if (target != null) {
                 RalseiEntity.this.turnToFace(target);
             }
         }
-
         @Override
         public void stop() {
             rescuing = false;
@@ -321,10 +310,9 @@ public class RalseiEntity extends PathfinderMob {
             RalseiEntity.this.entityData.set(DATA_FLYING, false);
             RalseiEntity.this.setDeltaMovement(Vec3.ZERO);
         }
-
         @Override
         public void tick() {
-            ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
+            ServerPlayer target = RalseiEntity.this.followTarget();
             if (target == null) {
                 return;
             }
@@ -340,29 +328,24 @@ public class RalseiEntity extends PathfinderMob {
             RalseiEntity.this.turnToFace(target);
         }
     }
-
     private class AerialFollowGoal extends Goal {
         private static final double FOLLOW_DISTANCE = 3.0D;
         private static final double POSITION_LERP = 0.2D;
         private static final double LAUNCH_VELOCITY = 0.5D;
         private static final int LAUNCH_TICKS = 8;
 
-        private int launchRemaining;
-
         AerialFollowGoal() {
             this.setFlags(EnumSet.of(Flag.MOVE));
         }
 
         private boolean targetIsFlying() {
-            ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
+            ServerPlayer target = RalseiEntity.this.followTarget();
             return target != null && target.isFallFlying();
         }
-
         @Override
         public boolean canUse() {
             return followLock.isOwned() && !isTalking() && !rescuing && targetIsFlying();
         }
-
         @Override
         public boolean canContinueToUse() {
             if (!followLock.isOwned() || isTalking() || rescuing) {
@@ -375,7 +358,7 @@ public class RalseiEntity extends PathfinderMob {
         }
 
         private boolean closeToGround() {
-            ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
+            ServerPlayer target = RalseiEntity.this.followTarget();
             return target == null || Math.abs(RalseiEntity.this.getY() - target.getY()) < 1.5;
         }
 
@@ -386,22 +369,20 @@ public class RalseiEntity extends PathfinderMob {
             launchTicksElapsed = 0;
             aerialFollowing = true;
 
-            ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
+            ServerPlayer target = RalseiEntity.this.followTarget();
             if (target != null) {
                 RalseiEntity.this.turnToFace(target);
             }
         }
-
         @Override
         public void stop() {
             aerialFollowing = false;
             RalseiEntity.this.setNoGravity(false);
             RalseiEntity.this.entityData.set(DATA_FLYING, false);
         }
-
         @Override
         public void tick() {
-            ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
+            ServerPlayer target = RalseiEntity.this.followTarget();
             if (target == null) {
                 return;
             }
@@ -423,7 +404,6 @@ public class RalseiEntity extends PathfinderMob {
             RalseiEntity.this.turnToFace(target);
         }
     }
-
     private class FollowPlayerGoal extends Goal {
         private static final double SPEED_MODIFIER = 1.075D;
         private static final double SPRINT_SPEED_MODIFIER = 1.6D;
@@ -460,7 +440,7 @@ public class RalseiEntity extends PathfinderMob {
 
         @Override
         public void tick() {
-            ServerPlayer target = followLock.getOwner((ServerLevel) RalseiEntity.this.level());
+            ServerPlayer target = RalseiEntity.this.followTarget();
             if (target == null) {
                 return;
             }
@@ -488,11 +468,9 @@ public class RalseiEntity extends PathfinderMob {
             }
         }
     }
-
     private static float snapToNearest(float degrees, float increment) {
         return Math.round(Mth.wrapDegrees(degrees) / increment) * increment;
     }
-
     private static float yawTo(double dx, double dz) {
         return (float) (Mth.atan2(dz, dx) * (180D / Math.PI)) - 90F;
     }
@@ -502,7 +480,6 @@ public class RalseiEntity extends PathfinderMob {
         boolean crossedThreshold = Mth.abs(Mth.wrapDegrees(candidate - previousSnap)) > hysteresisDegrees;
         return crossedThreshold ? candidate : previousSnap;
     }
-
     private void setFacingSnap(float snapped) {
         this.facingSnap = snapped;
         this.yBodyRot = snapped;
@@ -510,7 +487,6 @@ public class RalseiEntity extends PathfinderMob {
         this.yBodyRotO = snapped;
         this.yHeadRotO = snapped;
     }
-
     public float getVisualFacingYaw() {
         return this.facingSnap;
     }
@@ -525,7 +501,6 @@ public class RalseiEntity extends PathfinderMob {
         this.setYRot(rawYaw);
         this.yRotO = rawYaw;
     }
-
     public void turnToFace(Entity target) {
         turnToFace(target.getX(), target.getZ());
     }
@@ -537,25 +512,27 @@ public class RalseiEntity extends PathfinderMob {
         this.setDeltaMovement(0, launchVelocity, 0);
         return true;
     }
-
     private void flyTowardLerp(Vec3 targetPos, double lerpFactor) {
         Vec3 lerped = this.position().lerp(targetPos, lerpFactor);
         this.setPos(lerped.x, lerped.y, lerped.z);
         this.setDeltaMovement(Vec3.ZERO);
     }
-
+    private @Nullable ServerPlayer followTarget() {
+        return followLock.getOwner((ServerLevel) this.level());
+    }
     private boolean isPlayerPresent(ServerPlayer player) {
         return !player.isRemoved() && player.isAlive() && player.level() == this.level();
     }
-
-    private void enterTalkingState(ServerPlayer player) {
-        turnToFace(player);
+    private void enterTalkStance(ServerPlayer target) {
+        turnToFace(target);
         this.getNavigation().stop();
         this.setSpeed(0f);
         this.entityData.set(DATA_TALKING, true);
+    }
+    private void enterTalkingState(ServerPlayer player) {
+        enterTalkStance(player);
         resetBoredomTimer();
     }
-
     private void resetBoredomTimer() {
         boredomTicks = randomRange(MIN_BOREDOM_TICKS, MAX_BOREDOM_TICKS);
     }
@@ -572,14 +549,12 @@ public class RalseiEntity extends PathfinderMob {
             this.playSound(ModSounds.RALSEI_LULLABY, 1.0f, 1.0f);
         }
     }
-
     private void endBoredomTask() {
         this.entityData.set(DATA_SLEEPING, false);
         this.entityData.set(DATA_SINGING, false);
         currentBoredomTask = BoredomTask.NONE;
         resetBoredomTimer();
     }
-
     private String applyBoredomInterruptionEffects() {
         boolean wasSleeping = isSleeping();
         boolean wasSinging = isSinging();
@@ -598,17 +573,14 @@ public class RalseiEntity extends PathfinderMob {
         }
         return "";
     }
-
     public boolean interruptBoredomTask(ServerPlayer player) {
         applyBoredomInterruptionEffects();
         return beginTalking(player);
     }
-
     public @Nullable String beginTalkingWithInterruption(ServerPlayer player) {
         String interrupted = applyBoredomInterruptionEffects();
         return beginTalking(player) ? interrupted : null;
     }
-
     public boolean isSleeping() {
         return this.entityData.get(DATA_SLEEPING);
     }
@@ -632,7 +604,6 @@ public class RalseiEntity extends PathfinderMob {
         enterTalkingState(player);
         return true;
     }
-
     public void endTalking(ServerPlayer player) {
         if (escapeState == EscapeState.DIALOGUE) {
             this.entityData.set(DATA_TALKING, false);
@@ -653,7 +624,6 @@ public class RalseiEntity extends PathfinderMob {
         }
         pendingFollowAction = PendingFollowAction.NONE;
     }
-
     public FollowPrompt requestFollowToggle(ServerPlayer player) {
         if (talkLock.isOwned() || isInBoredomTask()) {
             return FollowPrompt.DENIED;
@@ -672,7 +642,6 @@ public class RalseiEntity extends PathfinderMob {
         pendingFollowAction = currentlyFollowingThisPlayer ? PendingFollowAction.STOP : PendingFollowAction.START;
         return currentlyFollowingThisPlayer ? FollowPrompt.STOP : FollowPrompt.START;
     }
-
     public boolean isTalking() {
         return this.entityData.get(DATA_TALKING);
     }
@@ -693,9 +662,11 @@ public class RalseiEntity extends PathfinderMob {
         builder.define(DATA_SINGING, false);
         builder.define(DATA_SCARED, false);
     }
-
     @Override
     public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        if (this.isInvulnerableTo(level, source)) {
+            return false;
+        }
         if (escapeState != EscapeState.NONE) {
             return false;
         }
@@ -707,20 +678,15 @@ public class RalseiEntity extends PathfinderMob {
         }
         return super.hurtServer(level, source, amount);
     }
-
     private void beginEscapeDialogue(ServerPlayer attacker) {
         escapeState = EscapeState.DIALOGUE;
         applyBoredomInterruptionEffects(); // stops the lullaby
         talkLock.forceRelease();
         followLock.forceRelease();
-        this.getNavigation().stop();
-        this.setSpeed(0f);
-        turnToFace(attacker);
+        enterTalkStance(attacker);
         talkLock.tryAcquire(attacker);
-        this.entityData.set(DATA_TALKING, true);
         ServerPlayNetworking.send(attacker, new DialogueOpenDyingPayload(this.getId()));
     }
-
     private void beginFlee() {
         escapeState = EscapeState.FLEEING;
         escapeTicks = 0;
@@ -738,7 +704,6 @@ public class RalseiEntity extends PathfinderMob {
         this.setNoGravity(true);
         this.entityData.set(DATA_FLYING, true);
     }
-
     private class EscapeGoal extends Goal {
         private static final double FLEE_SPEED = 2.5D;
         private static final double ESCAPE_LAUNCH_VELOCITY = 0.33D;
@@ -765,8 +730,7 @@ public class RalseiEntity extends PathfinderMob {
             }
             escapeTicks++;
 
-            if (escapeTicks <= ESCAPE_LAUNCH_TICKS) {
-                RalseiEntity.this.setDeltaMovement(0, ESCAPE_LAUNCH_VELOCITY, 0);
+            if (RalseiEntity.this.tickLaunchPhase(escapeTicks, ESCAPE_LAUNCH_TICKS, ESCAPE_LAUNCH_VELOCITY)) {
                 return;
             }
 
@@ -789,7 +753,27 @@ public class RalseiEntity extends PathfinderMob {
             }
         }
     }
+    private void updateAirborneState() {
+        boolean airborne = !this.onGround();
+        double verticalMotion = this.getDeltaMovement().y;
+        boolean falling = airborne && verticalMotion < 0 && this.fallDistance > MIN_FALL_DISTANCE;
+        boolean jumping = airborne && verticalMotion > 0;
 
+        if (wasFalling && this.onGround() && landingTicks < 0) {
+            landingTicks = 0;
+        }
+        wasFalling = falling;
+
+        if (landingTicks >= 0) {
+            landingTicks++;
+            if (landingTicks >= LANDING_ANIMATION_TICKS) {
+                landingTicks = -1;
+            }
+        }
+        this.entityData.set(DATA_FALLING, falling);
+        this.entityData.set(DATA_LANDING, landingTicks >= 0);
+        this.entityData.set(DATA_JUMPING, jumping);
+    }
     @Override
     public void tick() {
         super.tick();
@@ -819,7 +803,6 @@ public class RalseiEntity extends PathfinderMob {
                 this.entityData.set(DATA_TALKING, false);
             }
         }
-
         if (currentBoredomTask != BoredomTask.NONE) {
             boredomTaskTicks--;
             if (isShowingHurtSprite()) {
@@ -830,53 +813,28 @@ public class RalseiEntity extends PathfinderMob {
         } else if (!isTalking() && !followLock.isOwned() && this.onGround() && --boredomTicks <= 0) {
             startBoredomTask(Math.random() < 0.5 ? BoredomTask.SLEEP : BoredomTask.SING);
         }
-
         if (scaredTicks >= 0) {
             scaredTicks--;
             this.entityData.set(DATA_SCARED, scaredTicks >= 0);
         }
 
-        boolean airborne = !this.onGround();
-        double verticalMotion = this.getDeltaMovement().y;
-        boolean falling = airborne && verticalMotion < 0 && this.fallDistance > MIN_FALL_DISTANCE;
-        boolean jumping = airborne && verticalMotion > 0;
-
-        if (wasFalling && this.onGround() && landingTicks < 0) {
-            landingTicks = 0;
-        }
-        wasFalling = falling;
-
-        if (landingTicks >= 0) {
-            landingTicks++;
-            if (landingTicks >= LANDING_ANIMATION_TICKS) {
-                landingTicks = -1;
-            }
-        }
-        this.entityData.set(DATA_FALLING, falling);
-        this.entityData.set(DATA_LANDING, landingTicks >= 0);
-        this.entityData.set(DATA_JUMPING, jumping);
+        updateAirborneState();
     }
-
     public boolean isFalling() {
         return this.entityData.get(DATA_FALLING);
     }
-
     public boolean isLanding() {
         return this.entityData.get(DATA_LANDING);
     }
-
     public boolean isJumping() {
         return this.entityData.get(DATA_JUMPING);
     }
-
     public boolean isShowingHurtSprite() {
         return this.hurtTime > 0;
     }
-
     public boolean isShowingDeathSprite() {
         return this.isDeadOrDying();
     }
-
     public void updateClientLandingTracking() {
         if (this.isLanding()) {
             if (clientLandingStartTick < 0) {
@@ -886,11 +844,9 @@ public class RalseiEntity extends PathfinderMob {
             clientLandingStartTick = -1;
         }
     }
-
     public int getClientLandingElapsedTicks() {
         return clientLandingStartTick < 0 ? 0 : this.tickCount - clientLandingStartTick;
     }
-
     @Override
     public boolean isInvulnerableTo(ServerLevel level, DamageSource source) {
         if (source.is(DamageTypeTags.IS_EXPLOSION)) {
@@ -901,7 +857,6 @@ public class RalseiEntity extends PathfinderMob {
         }
         return true;
     }
-
     @Override
     public boolean fireImmune() {
         return true;
