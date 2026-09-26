@@ -1,71 +1,83 @@
-# overview of the project structure with class definitions
+# overview of this projects structure with all its class definitions
 
 #### this file contains a semi-comprehensive & detailed list about each class and its purpose w/ additional relevant information depending on the class. please keep in mind this text file might not always be up to date immediately so please excuse some inconsistencies as the mod gets updated
 
-###### _(this project was written & compiled in IntelliJ IDEA w/ the Minecraft development plugin, targeting minecraft 26.2 on fabric w/ java 25)_
+###### _(this project was written & compiled in IntelliJ IDEA w/ the Minecraft development plugin for Minecraft version 26.2 on Fabric w/ java 25)_
 
 ## list of included classes & their paths
 
-##### current path: src/main/java/dev/ralsei/, classes are organized by feature area into subpackages (entity, entity.dialogue, client, client.render, client.gui, item, network, sound, chat) rather than flat & alphabetical; please maintain this grouping when adding new classes
+##### current path: src/main/java/dev/ralsei/, classes are organized by their purposes & included features. they're further subdivided into their own area with unique subpackages:
 
-#### to see networking payload classes, check the following file path instead of the root package;
+- entity > entity.dialogue
+- client > client.render > client.gui
+- item
+- network
+- sound
+- chat
+
+##### please maintain this group structuring when adding new classes
+
+#### additionally, to see networking payloads & their classes, check the following file path;
 
 - networking payloads     >           src/main/java/dev/ralsei/network
 
 ## important information regarding the overall project and its structure
 
-##### this mod is built against a fairly recent minecraft/fabric api revision — the render pipeline now splits `extractRenderState`/`submit` (see RalseiEntityRenderer), and networking goes through `StreamCodec`/`PayloadTypeRegistry` rather than the older packet-byte-buffer style. keep this in mind when comparing against older tutorials or outdated source
+##### this mod was designed to use the recent Fabric network API & render pipeline changes for Minecraft. the mod entities visuals & networking backend were split into `extractRenderState`/`submit` (see RalseiEntityRenderer), and `StreamCodec`/`PayloadTypeRegistry` as opposed to the outdated packet-byte-buffer style
 
-##### server vs. client split: only RalseiEntity, PlayerLock, RalseiChatListener, and the payload registration/receivers in Deltarune run on the server. everything under client/ (including the renderer and dialogue screen) is client-only and has zero server tick cost
+##### server/client split: only RalseiEntity, PlayerLock, RalseiChatListener, and the payload registration/receivers in Deltarune run on the server. everything under client/ (including the renderer & dialogue screen) is client-only with no server impact & zero server tick cost
+
+##### all graphics for the entity were taken from the game "Deltarune" by Toby Fox: https://deltarune.com/
+
+##### the lullaby is a custom-made, altered version of the lullaby song from "Deltarune" using a fanmade soundfont recreation for the game
 
 ## core / initialization
 
 ### Deltarune
 
-- main mod initializer; registers entity types, items, creative tabs, sounds, and all networking payloads on startup
-- also registers the server-side receiver for `DialogueClosedPayload` (the one serverbound packet in the mod)
+- main mod initializer; registers entity types, items, creative tabs, sounds & all networking payloads on startup
+- registers the server-side receiver for `DialogueClosedPayload` (the one serverbound packet in the mod)
 
 ### DeltaruneClient
 
-- client-side initializer; registers the entity renderer, the right-click interaction handler for Ralsei (talk / follow-toggle / boredom-interrupt), and every clientbound payload receiver
-- this is where a right-click on Ralsei gets routed to either opening the dialogue screen (client) or `beginTalking`/`requestFollowToggle`/`interruptBoredomTask` (server)
+- client-side initializer; registers the entity renderer, the right-click interaction handler for the mod entity (talk/follow-toggle/boredom-interrupt), and every clientbound payload receiver
+- this is where the right-click gets routed to either opening the dialogue screen (client-side) or `beginTalking`/`requestFollowToggle`/`interruptBoredomTask` (server operation)
 
 ### DeltaruneDataGenerator
 
-- default fabric data generator entry point; currently empty, placeholder for future generated data (loot tables, recipes, etc.)
+- default Fabric data generator entry point; currently empty placeholder, carried over from the Fabric mod template at https://fabricmc.net/develop/template/
 
 ## entity
 
 ### RalseiEntity
 
-- the main NPC entity; a `PathfinderMob` handling talk/follow state (via `PlayerLock`), boredom tasks (sleep/sing), 4-directional grid movement & facing, three custom flight goals (rescue, aerial-follow, escape/flee), and the near-death "flee" sequence
-- deliberately deviates from normal combat stats (immune to explosions & fire, only takes damage from direct player attacks) per lore — see `isInvulnerableTo`/`fireImmune`
-- ###### _(constants/fields renamed to a compact, lowercase style deliberately — see comments for what's safe to touch; MIN_FACING_DISTANCE_SQ-equivalent is intentionally matched to vanilla LookControl's epsilon, please don't change)_
+- main NPC entity for the mod; a `PathfinderMob` handling talk/follow state (via `PlayerLock`), has included boredom tasks (sleep/sing), 4-directional grid movement & facing, custom ai goals (rescue when stuck, aerial-follow for elytra flight, escape/flee when near death)
+- deliberately deviates from normal mob properties to act more as a decorative, neutral NPC(total damage immunity except for player attacks), see `isInvulnerableTo`/`fireImmune`
 
 ### PlayerLock
 
-- small reusable "ownership slot" utility — tracks which single player currently owns an interaction (talking to / being followed by Ralsei), with acquire/release/validate semantics
-- used twice per Ralsei instance: once for the talk lock, once for the follow lock
+- small reusable "ownership slot" utility—tracks which server player currently owns an interaction (talking to/being followed by Ralsei), with acquire/release/validate semantics
+- used twice per Ralsei instance; once for the talkLock, once for the followLock
 
 ### ModEntityTypes
 
-- registers the `RalseiEntity` entity type & its default attributes (health, movement speed, follow range, jump strength)
+- registers the `RalseiEntity` entity type & its default attributes (health, movement speed, follow range, jump strength etc.)
 
 ### ModEntityTypeIds
 
-- holds the `ResourceKey` for the Ralsei entity type, kept separate from ModEntityTypes so the key can be referenced without triggering full registration
+- holds the `ResourceKey` for the previously specified entity type, kept separate from ModEntityTypes so the key can be referenced without triggering full registration
 
 ## entity.dialogue
 
 ### DialogueMessage
 
 - record describing a single line of dialogue: text, typing speed, portrait, text animation, size, alignment, and an optional sprite "talk override" (wave/giggle/shy/etc.)
-- has several telescoping constructors purely for default values — left as-is, see optimization notes
+- has several telescoping constructors purely for default values, see notes in class for additional information
 
 ### DialoguePool
 
-- static data + lookup logic for all of Ralsei's dialogue: greetings, wake-up lines, caught-singing lines, dying lines, follow start/stop lines, and keyword-triggered chat responses (`ChatTrigger`)
-- `matchChatKey`/`randomForChatKey` split the "which response fits this message" decision (server-side, needs the actual words) from "which random variant do we show" (client-side, only needs the matched key) — the server never has to transmit the actual response text
+- static lookup table + data & logic for all dialogue: random dialogue lines, wake-up dialogues & keyword-triggered chat responses (`ChatTrigger`)
+- `matchChatKey`/`randomForChatKey` split the "which response fits this message" decision (server-side, needs the actual words) from "which random variant is shown" (client-side, only needs the matched key), the server will never transmit the actual response text
 
 ### ChatTrigger
 
@@ -74,22 +86,22 @@
 
 ### TextAlignment / TextAnimation / TextSize / TypingSpeed
 
-- small enums driving dialogue-screen presentation: left/centered text, still/shake/wave/scared per-letter animation, small/normal/big text scale, and slow/normal/fast typing speed (ticks-per-character)
+- small enums driving dialogue screen presentation: left/centered text, still/shake/wave/scared per-letter animation, small/normal/big text scale, and slow/normal/fast typing speed (ticks-per-character)
 
 ## client.render
 
 ### RalseiEntityRenderer
 
 - custom sprite-billboard renderer; extracts a `RalseiVisualState` (idle/walk/sprint/fly/hurt/dead/scared/etc.) each frame based on entity state, then draws a single flat quad with the right texture/frame, either 4-directionally snapped (via entity yaw) or camera-billboarded (for non-directional sprites like idle)
-- looked at vanilla's `Display`/`DisplayRenderer` billboard math for comparison — kept the position-based camera-facing approach since it behaves correctly even when the viewer looks away without moving, unlike vanilla's rotation-based `CENTER` constraint
+- purposefully deviates from vanilla's `Display`/`DisplayRenderer` billboard math & kept the position-based camera-facing approach since it doesn't behave correctly otherwise with vanilla's rotation-based `CENTER` constraint used in the first method
 
 ### RalseiEntityRenderState
 
-- plain per-frame state snapshot passed from `extractRenderState` to `submit` (position, yaw, chosen visual state, animation frame)
+- plain per frame state snapshot passed from `extractRenderState` to `submit` (position, yaw, chosen visual state, animation frame)
 
 ### RalseiVisualState
 
-- enum of every sprite/animation Ralsei can display, with frame dimensions, frame count, loop flag, and frame timing baked in per-state
+- enum of every sprite/animation that can be displayed with frame dimensions, count, loop flag & frame timing baked in per state
 
 ### Direction4
 
@@ -99,20 +111,20 @@
 
 ### RalseiDialogueScreen
 
-- the dialogue box screen: portrait, wrapped/typed-out text with per-character animation (still/shake/wave/scared), sound-blip on each revealed character, and open/close slide-fade transitions
+- the dialogue box screen: portrait, wrapped/typed-out text with per-character animation (still/shake/wave/scared), talking sound per revealed character & open/close fade-in/out transitions
 - entirely client-side; zero server cost regardless of how much text/animation logic lives here
 
 ## chat
 
 ### RalseiChatListener
 
-- listens to server chat messages, checks if any nearby Ralsei should respond (keyword match + range check), and kicks off a dialogue response without ever broadcasting Ralsei's response text to other players
+- listens to server chat messages, checks if any nearby Ralsei should respond (keyword match + range check) & gives a response without ever broadcasting it to any other players
 
 ## item
 
 ### ModItems
 
-- registers the Ralsei spawn egg
+- registers the spawn egg item
 
 ### ModItemIds
 
@@ -120,7 +132,7 @@
 
 ### ModCreativeTabs
 
-- creates the "deltarune" creative inventory tab and adds the spawn egg to it (future NPC items go here too)
+- creates the dedicated creative inventory tab & adds the spawn egg
 
 ## network
 
@@ -128,30 +140,30 @@
 
 ### DialogueClosedPayload
 
-- **serverbound.** client → server: "I closed the dialogue box for this entity." Triggers `RalseiEntity.endTalking`
+- **serverbound.** client > server confirmation for dialogue closure that triggers `RalseiEntity.endTalking`
 
 ### DialogueForceClosePayload
 
-- **clientbound.** server → client: force-close the dialogue screen if one is open (used when a talk/follow request is denied)
+- **clientbound.** server > client: force-close the dialogue screen if one is open (used when a talk/follow request is denied)
 
 ### DialogueOpenFollowConfirmPayload
 
-- **clientbound.** server → client: open the dialogue screen with the follow-start or follow-stop message set
+- **clientbound.** server > client: open the dialogue screen with the follow-start or follow-stop message set
 
 ### DialogueOpenChatResponsePayload
 
-- **clientbound.** server → client: open the dialogue screen with a chat-triggered response, carrying just the matched key + any boredom-interruption tag (never the actual response text)
+- **clientbound.** server > client: open the dialogue screen with a response, carrying just the matched key + any boredom-interruption tag (never the actual response text)
 
 ### DialogueOpenDyingPayload
 
-- **clientbound.** server → client: open the dialogue screen with the near-death "dying" dialogue line
+- **clientbound.** server > client: open the dialogue screen with associated dialogue
 
 ### StopLullabyPayload
 
-- **clientbound.** server → client: stop the lullaby sound client-side (sent when the singing boredom task is interrupted)
+- **clientbound.** server > client: stop the idle task sound client-side (sent when boredom task is interrupted)
 
 ## sound
 
 ### ModSounds
 
-- registers the two custom sound events: the dialogue typing blip and Ralsei's lullaby
+- registers the only two custom sound events included in this mod: the talking sound & Ralsei's lullaby
