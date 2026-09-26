@@ -666,7 +666,6 @@ public class RalseiEntity extends PathfinderMob {
             Vec3 pos = RalseiEntity.this.position();
             Vec3 toTarget = escapeTarget.subtract(pos);
             double dist = toTarget.length();
-
             if (dist <= fleeSpeed) {
                 RalseiEntity.this.discard();
                 return;
@@ -685,7 +684,6 @@ public class RalseiEntity extends PathfinderMob {
         double vMotion = this.getDeltaMovement().y;
         boolean falling = airborne && vMotion < 0 && this.fallDistance > minFallDist;
         boolean jumping = airborne && vMotion > 0;
-
         if (wasFalling && this.onGround() && landTicks < 0) {
             landTicks = 0;
         }
@@ -707,7 +705,6 @@ public class RalseiEntity extends PathfinderMob {
         if (newFace != this.faceSnap) {
             setFaceSnap(newFace);
         }
-
         if (this.level().isClientSide()) {
             return;
         }
@@ -740,7 +737,6 @@ public class RalseiEntity extends PathfinderMob {
             scaredTicks--;
             this.entityData.set(dScared, scaredTicks >= 0);
         }
-
         updateAirborne();
     }
     public boolean isFalling() {
